@@ -1,47 +1,52 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -eo pipefail
 
 DIR=${1:-.}
-M="$DIR/migrations"
-P="mig_check_$$"
-MIG=("$M"/[0-9]*_*.sql)
-N=${#MIG[@]}
+if [ -n "$2" ]; then export PGDATABASE=$2; fi
+PSQL="psql -X -q -At -v ON_ERROR_STOP=1"
 
-cleanup() { for s in clean upgrade; do dropdb --if-exists "${P}_$s" >/dev/null 2>&1 || true; done; }
-trap cleanup EXIT
-fail() { echo "FAIL: $*"; exit 1; }
-newdb() { dropdb --if-exists "$1" >/dev/null 2>&1 || true; createdb "$1"; }
-apply() { local db=$1; shift; for f in "$@"; do psql -X -q -v ON_ERROR_STOP=1 -d "$db" -f "$f" >/dev/null || fail "$(basename "$f") -> $db"; done; }
+fail() { echo "Ошибка: $1" >&2; exit 1; }
 
-[ "$N" -ge 2 ] && [ -f "${MIG[0]}" ] || fail "нужно минимум две миграции в $M"
+SNAP="SELECT concat_ws('|', 'T', relname, relkind) FROM pg_class
+WHERE relnamespace = 'public'::regnamespace AND relkind IN ('r', 'S')
+UNION ALL
+SELECT concat_ws('|', 'C', c.relname, a.attnum, a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, a.attidentity, pg_get_expr(d.adbin, d.adrelid))
+FROM pg_attribute a
+JOIN pg_class c ON c.oid = a.attrelid
+LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r' AND a.attnum > 0 AND NOT a.attisdropped
+UNION ALL
+SELECT concat_ws('|', 'K', conrelid::regclass, conname, pg_get_constraintdef(oid))
+FROM pg_constraint WHERE connamespace = 'public'::regnamespace
+UNION ALL
+SELECT concat_ws('|', 'I', indexname, indexdef) FROM pg_indexes WHERE schemaname = 'public';"
 
-schema() { psql -X -At -v ON_ERROR_STOP=1 -d "$1" <<'SQL' | LC_ALL=C sort
-SELECT 'T|'||n.nspname||'|'||c.relname||'|'||c.relkind::text
-FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-WHERE n.nspname='public' AND c.relkind IN ('r','S')
-UNION ALL
-SELECT 'C|'||n.nspname||'|'||c.relname||'|'||a.attnum||'|'||a.attname||'|'||format_type(a.atttypid,a.atttypmod)||'|'||a.attnotnull||'|'||a.attidentity::text||'|'||a.attgenerated::text||'|'||COALESCE(pg_get_expr(d.adbin,d.adrelid),'')
-FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
-WHERE n.nspname='public' AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped
-UNION ALL
-SELECT 'K|'||n.nspname||'|'||c.relname||'|'||con.conname||'|'||con.contype::text||'|'||pg_get_constraintdef(con.oid,true)
-FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-WHERE n.nspname='public' AND c.relkind='r'
-UNION ALL
-SELECT 'I|'||n.nspname||'|'||c.relname||'|'||i.relname||'|'||pg_get_indexdef(i.oid)
-FROM pg_index x JOIN pg_class c ON c.oid=x.indrelid JOIN pg_class i ON i.oid=x.indexrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-WHERE n.nspname='public' AND c.relkind='r';
-SQL
+run() {
+  {
+    echo "BEGIN;"
+    echo "$1" | while read -r f; do echo "\i '$f'"; done
+    echo "$SNAP"
+    echo "ROLLBACK;"
+  } | $PSQL | sort
 }
 
-newdb "${P}_clean"
-apply "${P}_clean" "${MIG[@]}"
+files=$(ls "$DIR"/migrations/[0-9]*_*.sql 2>/dev/null | sort -V) || fail "нет миграций"
+count=$(echo "$files" | wc -l)
+if [ "$count" -lt 2 ]; then fail "меньше двух миграций"; fi
 
-newdb "${P}_upgrade"
-apply "${P}_upgrade" "${MIG[@]:0:$((N-1))}"
-apply "${P}_upgrade" "${MIG[$((N-1))]}"
+tables=$($PSQL -c "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'") || fail "нет доступа к базе"
+if [ "$tables" != 0 ]; then fail "база не пустая"; fi
 
-[ "$(schema "${P}_clean")" = "$(schema "${P}_upgrade")" ] || fail "обновление с предыдущей версии: схема отличается от чистой"
+first=$(echo "$files" | head -n $((count - 1)))
+last=$(echo "$files" | tail -n 1)
+up=$(
+  echo "$first"
+  if [ -f "$DIR/upgrade_seed.sql" ]; then echo "$DIR/upgrade_seed.sql"; fi
+  echo "$last"
+)
+
+clean=$(run "$files") || fail "ошибка на чистой базе"
+upgrade=$(run "$up") || fail "ошибка при обновлении"
+if [ "$clean" != "$upgrade" ]; then fail "схемы не совпадают"; fi
 
 echo OK
