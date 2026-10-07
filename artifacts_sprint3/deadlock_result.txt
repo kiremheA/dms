@@ -1,0 +1,7 @@
+разный порядок (deadlock)
+ERROR:  deadlock detected
+DETAIL:  Process 62860 waits for ShareLock on transaction 3452; blocked by process 62859.
+Process 62859 waits for ShareLock on transaction 3451; blocked by process 62860.
+HINT:  See server log for query details.
+CONTEXT:  while updating tuple (0,1) in relation "part"
+одинаковый порядок

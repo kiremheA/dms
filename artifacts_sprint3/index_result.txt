@@ -1,0 +1,19 @@
+Timing is on.
+CREATE TABLE
+Time: 9.711 ms
+CREATE TABLE
+Time: 0.929 ms
+CREATE INDEX
+Time: 2.288 ms
+INSERT 0 502718
+Time: 709.133 ms
+INSERT 0 502718
+Time: 1414.271 ms (00:01.414)
+ table_without_index | table_with_index | index_size 
+---------------------+------------------+------------
+ 29 MB               | 29 MB            | 14 MB
+(1 row)
+
+Time: 0.698 ms
+DROP TABLE
+Time: 8.186 ms

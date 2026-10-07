@@ -1,0 +1,39 @@
+Sort  (cost=4279.14..4279.15 rows=6 width=119) (actual time=5.074..5.708 rows=5.00 loops=1)
+  Sort Key: (sum(m.quantity)) DESC
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=1565
+  ->  Finalize GroupAggregate  (cost=4274.81..4279.06 rows=6 width=119) (actual time=5.048..5.702 rows=5.00 loops=1)
+        Group Key: p.sku
+        Filter: (sum(m.quantity) >= '500'::numeric)
+        Rows Removed by Filter: 13
+        Buffers: shared hit=1562
+        ->  Gather Merge  (cost=4274.81..4278.34 rows=31 width=119) (actual time=5.039..5.677 rows=36.00 loops=1)
+              Workers Planned: 1
+              Workers Launched: 1
+              Buffers: shared hit=1562
+              ->  Sort  (cost=3274.80..3274.84 rows=18 width=119) (actual time=4.189..4.190 rows=18.00 loops=2)
+                    Sort Key: p.sku
+                    Sort Method: quicksort  Memory: 28kB
+                    Buffers: shared hit=1562
+                    Worker 0:  Sort Method: quicksort  Memory: 28kB
+                    ->  Partial HashAggregate  (cost=3274.15..3274.42 rows=18 width=119) (actual time=4.154..4.157 rows=18.00 loops=2)
+                          Group Key: p.sku
+                          Batches: 1  Memory Usage: 40kB
+                          Buffers: shared hit=1554
+                          Worker 0:  Batches: 1  Memory Usage: 40kB
+                          ->  Hash Join  (cost=1.41..3237.11 rows=3704 width=65) (actual time=3.205..3.788 rows=3202.50 loops=2)
+                                Hash Cond: (m.part_id = p.id)
+                                Buffers: shared hit=1554
+                                ->  Parallel Seq Scan on part_movement m  (cost=0.00..3223.69 rows=3704 width=14) (actual time=3.185..3.512 rows=3202.50 loops=2)
+                                      Filter: ((created_at >= '2026-08-01 00:00:00+00'::timestamp with time zone) AND (created_at < '2026-09-01 00:00:00+00'::timestamp with time zone) AND (movement_type = 'writeoff'::text))
+                                      Rows Removed by Filter: 77994
+                                      Buffers: shared hit=1552
+                                ->  Hash  (cost=1.18..1.18 rows=18 width=55) (actual time=0.015..0.015 rows=18.00 loops=2)
+                                      Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                      Buffers: shared hit=2
+                                      ->  Seq Scan on part p  (cost=0.00..1.18 rows=18 width=55) (actual time=0.011..0.012 rows=18.00 loops=2)
+                                            Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=197
+Planning Time: 0.321 ms
+Execution Time: 5.747 ms

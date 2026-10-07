@@ -1,0 +1,7 @@
+-[ RECORD 1 ]---+-------------------------------------------
+pid             | 62357
+wait_event_type | Lock
+wait_event      | transactionid
+blocked_by      | {62351}
+query           | SELECT 1 FROM part WHERE id = 1 FOR UPDATE
+

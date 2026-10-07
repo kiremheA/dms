@@ -1,0 +1,32 @@
+   id   |  status   
+--------+-----------
+ 585205 | in_repair
+ 585210 | in_repair
+(2 rows)
+
+BEGIN
+UPDATE 1
+INSERT 0 1
+   id   |      status      
+--------+------------------
+ 585205 | ready_for_pickup
+(1 row)
+
+UPDATE 1
+COMMIT
+BEGIN
+UPDATE 1
+INSERT 0 1
+   id   |      status      
+--------+------------------
+ 585210 | ready_for_pickup
+(1 row)
+
+UPDATE 1
+ROLLBACK
+   id   |  status   
+--------+-----------
+ 585210 | in_repair
+ 585215 | in_repair
+(2 rows)
+
