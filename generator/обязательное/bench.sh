@@ -9,7 +9,7 @@ bench() {
   done
 }
 
-psql -q -c "DROP INDEX IF EXISTS service_order_active_deadline, part_movement_writeoff_created" -c ANALYZE
+psql -q -c "DROP INDEX IF EXISTS service_order_active_deadline, part_movement_writeoff_created"
 bench before
 
 psql -q -c "CREATE INDEX service_order_active_deadline ON service_order (deadline_at) WHERE status NOT IN ('issued', 'cancelled');
