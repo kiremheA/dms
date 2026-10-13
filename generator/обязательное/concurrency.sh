@@ -3,14 +3,13 @@ export PGDATABASE=$1
 
 run_case() {
   PART=$(psql -qt -c "INSERT INTO part (name, sku, price) VALUES ('Тест', 'SKU-TEST', 1000) RETURNING id")
-  psql -qt -c "INSERT INTO part_movement (part_id, movement_type, quantity, price_at_movement) VALUES ($PART, 'receipt', 1, 1000)"
 
   for order in 1 2; do
     psql -qt -c "SELECT 1 FROM part WHERE id = $PART $1;
            INSERT INTO part_movement (part_id, service_order_id, movement_type, quantity, price_at_movement)
            SELECT $PART, $order, 'writeoff', 1, 1000
            WHERE NOT EXISTS (SELECT 1 FROM part_movement WHERE part_id = $PART AND movement_type = 'writeoff');
-           SELECT pg_sleep(2)" >/dev/null &
+           SELECT pg_sleep(1)" >/dev/null &
   done
   wait
 
