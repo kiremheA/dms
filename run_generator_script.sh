@@ -2,7 +2,7 @@
 #   запуск ./run.sh <dev|load> <имя_бд> [seed]
 set -e
 MODE=$1; DB=$2; SEED=${3:-67}
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/generator"
 OUT=out_$MODE
 
 g++ -O2 -o gen main.cpp
