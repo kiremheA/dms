@@ -58,12 +58,9 @@ const char* STATUS[] = {"queued", "diagnosis", "awaiting_approval", "in_repair",
 
 int recentStatus() {
     int w[] = {20, 15, 15, 20, 5, 15, 8, 2};
-    int r = rnd(100);
-    for (int s = 0; s < 8; s++) {
-        if (r < w[s]) return s;
-        r -= w[s];
-    }
-    return ISSUED;
+    int r = rnd(100), s = 0;
+    while (r >= w[s]) r -= w[s++];
+    return s;
 }
 
 int main(int argc, char** argv) {
@@ -220,7 +217,7 @@ int main(int argc, char** argv) {
             partQty = 1 + rnd(2);
             total += partQty * partPrice[part];
         }
-        int cx = (rnd(100) < 70) ? 0 : 1;
+        int cx = rnd(100) >= 70;
 
         int path[8], n = 0;
         if (st == CANCELLED) {
@@ -239,7 +236,8 @@ int main(int argc, char** argv) {
             if (rnd(10) == 0) step += rnd(240) * 3600;
             t += min(step, (T1 - t) / (n - j));
         }
-        deviceFree[d] = (st == ISSUED || st == CANCELLED) ? when[st] : (1LL << 62);
+
+        deviceFree[d] = (st == ISSUED || st == CANCELLED) ? when[st] : T1;
         lastIssued[d] = (st == ISSUED && !orig) ? o : 0;
 
         bool diagnosed = (st >= APPROVAL && st <= ISSUED);
@@ -250,7 +248,7 @@ int main(int argc, char** argv) {
 
         fMal << o << ';' << o << ';' << malfunctions[skewed(malfunctions.size())] << '\n';
 
-        if (st >= DIAGNOSIS && st <= ISSUED) {
+        if (master) {
             fAsg << o << ';' << o << ';' << master << ';' << ts(when[DIAGNOSIS]) << ';';
             if (st >= READY) fAsg << ts(when[READY]);
             fAsg << ";\n";
@@ -260,11 +258,10 @@ int main(int argc, char** argv) {
             fDiag << o << ';' << o << ';' << o << ';' << normId[cat][cx] << ';'
                   << findings[skewed(findings.size())] << ';' << ts(when[APPROVAL]) << '\n';
 
-            bool agreed = (st >= REPAIR);
             fEst << o << ';' << o << '\n';
-            fVer << o << ';' << o << ";1;" << num(total) << ';' << (agreed ? "agreed" : "draft")
+            fVer << o << ';' << o << ";1;" << num(total) << ';' << (st >= REPAIR ? "agreed" : "draft")
                  << ';' << ts(when[APPROVAL]) << ';';
-            if (agreed) fVer << ts(when[REPAIR]);
+            if (st >= REPAIR) fVer << ts(when[REPAIR]);
             fVer << '\n';
             for (int k = 0; k < nLines; k++)
                 fLine << ++lid << ';' << o << ";service;" << lineSvc[k] << ";;1.00;" << num(svcPrice[lineSvc[k]]) << '\n';
