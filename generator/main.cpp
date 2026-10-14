@@ -96,7 +96,6 @@ int main(int argc, char** argv) {
         fVer(out + "/estimate_version.csv"), fLine(out + "/estimate_line.csv"),
         fWork(out + "/work.csv"), fInv(out + "/invoice.csv"),
         fPay(out + "/payment.csv"), fMove(out + "/part_movement.csv");
-    check(fCat.is_open(), "папка " + out + " не существует");
 
     int nCat = cats.size();
     vector<int> warranty(nCat + 1), diagDays(nCat + 1);
