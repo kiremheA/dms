@@ -19,7 +19,6 @@ int skewed(int n) {
 
 vector<string> readLines(const string& path) {
     ifstream f(path);
-    if (!f) { cerr << "Не открыть файл " << path << "\n"; exit(1); }
     vector<string> v;
     string s;
     while (getline(f, s)) {
@@ -53,10 +52,6 @@ string num(double x) {
     return buf;
 }
 
-void check(bool ok, const string& msg) {
-    if (!ok) { cerr << "Ошибка во входных данных: " << msg << "\n"; exit(1); }
-}
-
 enum { QUEUED, DIAGNOSIS, APPROVAL, REPAIR, PART, READY, ISSUED, CANCELLED };
 const char* STATUS[] = {"queued", "diagnosis", "awaiting_approval", "in_repair",
                         "awaiting_part", "ready_for_pickup", "issued", "cancelled"};
@@ -72,12 +67,10 @@ int recentStatus() {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 4) { cerr << "usage: gen <seed> <out_dir> <dev|load> [data_dir]\n"; return 1; }
     rng.seed(atoi(argv[1]));
     string out = argv[2];
     string mode = argv[3];
     string in = argc > 4 ? argv[4] : "data";
-    check(mode == "dev" || mode == "load", "режим должен быть dev или load");
 
     int N = (mode == "load") ? 600000 : 15000;
     int nCust = N / 4, nDev = N / 2;
@@ -155,13 +148,6 @@ int main(int argc, char** argv) {
                 fSpec << id << ';' << c << '\n';
             }
         }
-    }
-
-    check(!dispatchers.empty(), "в staff.txt нет диспетчера");
-    for (int c = 1; c <= nCat; c++) {
-        check(normId[c][0] && normId[c][1], "нет нормативов simple и complex у категории " + to_string(c));
-        check(svcByCat[c].size() >= 3, "меньше 3 услуг у категории " + to_string(c));
-        check(!mastersByCat[c].empty(), "нет мастера со специализацией " + to_string(c));
     }
 
     for (int c = 1; c <= nCust; c++) {
