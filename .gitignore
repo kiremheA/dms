@@ -1,1 +1,5 @@
 .DS_Store
+sprint4/EXPERIMENT-TEMPLATE/.env
+generator/gen
+generator/out_dev
+generator/out_load
