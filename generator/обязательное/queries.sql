@@ -129,3 +129,64 @@ LIMIT 10;
  Зависает при работе                         |  25278
 (10 rows)
 */
+
+-- Запрос 6. Средний срок выполнения заявок по категориям
+-- Бизнес-вопрос: в каких категориях техника дольше всего ремонтируется?
+-- Параметры: все выданные заявки; срок считается от создания до первого статуса issued.
+WITH issued_orders AS (
+    SELECT service_order_id, min(changed_at) AS issued_at
+    FROM order_status_history
+    WHERE status = 'issued'
+    GROUP BY service_order_id
+), category_duration AS (
+    SELECT dc.name AS category, count(*) AS issued_orders,
+           round(avg(extract(epoch FROM (io.issued_at - o.created_at)) / 86400), 2) AS avg_days
+    FROM issued_orders io
+    JOIN service_order o ON o.id = io.service_order_id
+    JOIN device d ON d.id = o.device_id
+    JOIN device_category dc ON dc.id = d.device_category_id
+    GROUP BY dc.name
+)
+SELECT category, issued_orders AS orders, avg_days,
+       rank() OVER (ORDER BY avg_days DESC) AS rank
+FROM category_duration
+ORDER BY rank, category;
+
+-- Запрос 7. Помесячная выручка и её динамика
+-- Бизнес-вопрос: как менялась общая выручка и каков её итог?
+-- Параметры: за всё время; сравнение идёт с предыдущим месяцем, в котором были оплаты.
+WITH monthly_revenue AS (
+    SELECT date_trunc('month', paid_at) AS month,
+           sum(amount) AS revenue
+    FROM payment
+    GROUP BY date_trunc('month', paid_at)
+)
+SELECT month::date AS month, revenue,
+       lag(revenue) OVER (ORDER BY month) AS prev_revenue,
+       sum(revenue) OVER (
+           ORDER BY month
+           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+       ) AS running_total
+FROM monthly_revenue
+ORDER BY month;
+
+-- Запрос 8. Помесячная нагрузка мастеров
+-- Бизнес-вопрос: сколько заявок выполняет каждый мастер и каков средний объём за последние три месяца с работами?
+-- Параметры: за всё время; учитываются заявки с выполненными работами.
+WITH monthly_master_work AS (
+    SELECT s.id AS master_id, s.full_name AS master,
+           date_trunc('month', w.created_at) AS month,
+           count(DISTINCT w.service_order_id) AS worked_orders
+    FROM work w
+    JOIN master_assignment a ON a.id = w.master_assignment_id
+    JOIN staff s ON s.id = a.master_id
+    GROUP BY s.id, s.full_name, date_trunc('month', w.created_at)
+)
+SELECT master, month::date AS month, worked_orders AS orders,
+       round(avg(worked_orders) OVER (
+           PARTITION BY master_id
+           ORDER BY month
+           ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+       ), 2) AS avg_3_periods
+FROM monthly_master_work
+ORDER BY master, month;
