@@ -39,6 +39,10 @@ void MongoCrud::validateParameters(int categoryId, const char* scope,
                        definition["required"].get_bool().value});
     }
 
+    if (definitions.empty() && values.begin() != values.end()) {
+        throw std::runtime_error("Для этой категории и назначения не заданы определения параметров");
+    }
+
     for (const auto& [name, definition] : definitions) {
         if (definition.required && !values[name]) {
             throw std::runtime_error("Не заполнено обязательное поле: " + name);

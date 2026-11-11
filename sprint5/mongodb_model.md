@@ -27,7 +27,7 @@
 {
   _id: ObjectId("000000000000000000000001"),
   device_id: 2,
-  category_id: 2,
+  category_id: 1,
   parameters: {
     model: "Samsung Galaxy A54",
     memory_gb: 128
