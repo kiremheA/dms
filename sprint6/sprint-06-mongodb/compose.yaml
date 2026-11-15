@@ -1,0 +1,204 @@
+name: sprint-06-mongodb
+
+services:
+  keyfile-init:
+    image: mongo:8.0.30-noble
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - |
+        set -eu
+        test -f /source/mongo-keyfile
+        test -s /source/mongo-keyfile
+        cp /source/mongo-keyfile /keyfile/mongo-keyfile
+        chown 999:999 /keyfile/mongo-keyfile
+        chmod 400 /keyfile/mongo-keyfile
+    volumes:
+      - type: bind
+        source: ${MONGO_KEYFILE_PATH:-./secrets/mongo-keyfile}
+        target: /source/mongo-keyfile
+        read_only: true
+      - keyfile_data:/keyfile
+    restart: "no"
+    networks:
+      - mongodb_network
+
+  mongo1:
+    image: mongo:8.0.30-noble
+    command:
+      - mongod
+      - --replSet
+      - ${MONGO_REPLICA_SET:-rs0}
+      - --keyFile
+      - /etc/mongodb-keyfile/mongo-keyfile
+      - --bind_ip_all
+      - --auth
+      - --oplogSize
+      - "256"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MONGO1_PORT:-27017}:27017"
+    volumes:
+      - mongo1_data:/data/db
+      - mongo1_config:/data/configdb
+      - keyfile_data:/etc/mongodb-keyfile:ro
+    depends_on:
+      keyfile-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --host 127.0.0.1
+          --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 2)'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - mongodb_network
+
+  mongo2:
+    image: mongo:8.0.30-noble
+    command:
+      - mongod
+      - --replSet
+      - ${MONGO_REPLICA_SET:-rs0}
+      - --keyFile
+      - /etc/mongodb-keyfile/mongo-keyfile
+      - --bind_ip_all
+      - --auth
+      - --oplogSize
+      - "256"
+    ports:
+      - "127.0.0.1:${MONGO2_PORT:-27018}:27017"
+    volumes:
+      - mongo2_data:/data/db
+      - mongo2_config:/data/configdb
+      - keyfile_data:/etc/mongodb-keyfile:ro
+    depends_on:
+      keyfile-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --host 127.0.0.1
+          --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 2)'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - mongodb_network
+
+  mongo3:
+    image: mongo:8.0.30-noble
+    command:
+      - mongod
+      - --replSet
+      - ${MONGO_REPLICA_SET:-rs0}
+      - --keyFile
+      - /etc/mongodb-keyfile/mongo-keyfile
+      - --bind_ip_all
+      - --auth
+      - --oplogSize
+      - "256"
+    ports:
+      - "127.0.0.1:${MONGO3_PORT:-27019}:27017"
+    volumes:
+      - mongo3_data:/data/db
+      - mongo3_config:/data/configdb
+      - keyfile_data:/etc/mongodb-keyfile:ro
+    depends_on:
+      keyfile-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --host 127.0.0.1
+          --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 2)'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - mongodb_network
+
+  rs-init:
+    image: mongo:8.0.30-noble
+    entrypoint:
+      - /bin/sh
+    command:
+      - /scripts/init-replica-set.sh
+    environment:
+      MONGO_REPLICA_SET: ${MONGO_REPLICA_SET:-rs0}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+      MONGO_APP_DATABASE: ${MONGO_APP_DATABASE:?Set MONGO_APP_DATABASE in .env}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}
+      MONGO_ANALYST_USERNAME: ${MONGO_ANALYST_USERNAME:?Set MONGO_ANALYST_USERNAME in .env}
+      MONGO_ANALYST_PASSWORD: ${MONGO_ANALYST_PASSWORD:?Set MONGO_ANALYST_PASSWORD in .env}
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - mongodb_network
+
+  client:
+    image: mongo:8.0.30-noble
+    profiles:
+      - tools
+    entrypoint:
+      - /bin/sh
+    command:
+      - -c
+      - sleep infinity
+    environment:
+      MONGO_REPLICA_SET: ${MONGO_REPLICA_SET:-rs0}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+      MONGO_APP_DATABASE: ${MONGO_APP_DATABASE:?Set MONGO_APP_DATABASE in .env}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./artifacts:/artifacts
+    depends_on:
+      rs-init:
+        condition: service_completed_successfully
+    networks:
+      - mongodb_network
+
+volumes:
+  keyfile_data:
+    name: sprint06_mongodb_keyfile
+  mongo1_data:
+    name: sprint06_mongo1_data
+  mongo1_config:
+    name: sprint06_mongo1_config
+  mongo2_data:
+    name: sprint06_mongo2_data
+  mongo2_config:
+    name: sprint06_mongo2_config
+  mongo3_data:
+    name: sprint06_mongo3_data
+  mongo3_config:
+    name: sprint06_mongo3_config
+
+networks:
+  mongodb_network:
+    name: sprint06_mongodb_network

@@ -85,10 +85,15 @@ void mongo_schema::initialize(mongocxx::database& db) {
 
     ensureIndex(db, "device_parameters", "device_id_unique",
                 make_document(kvp("device_id", 1)).view(), true);
+    ensureIndex(db, "device_parameters", "category_memory_gb",
+                make_document(kvp("category_id", 1),
+                              kvp("parameters.memory_gb", 1)).view(), false);
     ensureIndex(db, "order_intake_parameters", "service_order_id_unique",
                 make_document(kvp("service_order_id", 1)).view(), true);
     ensureIndex(db, "order_intake_parameters", "device_profile_id",
                 make_document(kvp("device_profile_id", 1)).view(), false);
+    ensureIndex(db, "order_intake_parameters", "screen_condition",
+                make_document(kvp("reception_parameters.screen_condition", 1)).view(), false);
     ensureIndex(db, "parameter_definitions", "scope_name_unique",
                 make_document(kvp("scope", 1), kvp("name", 1)).view(), true);
 }

@@ -1,0 +1,4 @@
+.env
+secrets/mongo-keyfile
+artifacts/*
+!artifacts/.gitkeep
