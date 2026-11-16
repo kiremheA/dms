@@ -40,3 +40,23 @@ target_link_libraries(dms_app PRIVATE
     mongo::mongocxx_shared
     mongo::bsoncxx_shared
 )
+
+add_executable(mongo_bulk_demo
+    sprint6/mongo_bulk_demo.cpp
+    sprint5/mongo_schema.cpp
+)
+
+target_include_directories(mongo_bulk_demo PRIVATE sprint5)
+target_link_libraries(mongo_bulk_demo PRIVATE
+    mongo::mongocxx_shared
+    mongo::bsoncxx_shared
+)
+
+add_executable(mongo_transaction_demo
+    sprint6/mongo_transaction_demo.cpp
+)
+
+target_link_libraries(mongo_transaction_demo PRIVATE
+    mongo::mongocxx_shared
+    mongo::bsoncxx_shared
+)
